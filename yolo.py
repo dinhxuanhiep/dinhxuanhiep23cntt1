@@ -43,8 +43,7 @@ class YOLO(object):
         ], dtype='float32')
         self.num_anchors = 6
         
-        # --- QUAN TRỌNG: MASK ĐỂ ĐỊNH NGHĨA SỐ ANCHORS MỖI LAYER ---
-        # 3 anchors cho mỗi đầu ra -> 3 * 85 = 255 filters (Khớp với weights)
+    
         self.anchors_mask = [[3, 4, 5], [0, 1, 2]]
 
         self.class_names, self.num_classes = get_classes(self.classes_path)
@@ -56,7 +55,6 @@ class YOLO(object):
         self.generate()
 
     def generate(self):
-        # SỬA LỖI: Truyền anchors_mask vào YoloBody thay vì self.anchors
         self.net = YoloBody(self.anchors_mask, self.num_classes)
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -141,4 +139,5 @@ class YOLO(object):
         np.random.seed(10101)
         np.random.shuffle(colors)
         np.random.seed(None)
+
         return colors
