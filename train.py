@@ -23,46 +23,35 @@ if __name__ == "__main__":
     # ====================================================================
     #                           PHẦN 1: CẤU HÌNH
     # ====================================================================
-    
-    # 1. Chế độ chạy (True = GPU, False = CPU)
-    # Lưu ý: Nếu máy báo lỗi "Torch not compiled with CUDA", hãy sửa thành False
+
     Cuda            = True
 
-    # 2. Đường dẫn dữ liệu
     classes_path    = 'model_data/my_classes.txt'
     model_path      = 'model_data/yolov4_tiny_weights_coco.pth'
     train_annotation_path   = '2007_train.txt'
     val_annotation_path     = '2007_train.txt'
 
-    # 3. Tham số mô hình
     input_shape     = [416, 416]
-    anchors_mask    = [[3, 4, 5], [0, 1, 2]] # Tiny dùng 2 đầu ra
+    anchors_mask    = [[3, 4, 5], [0, 1, 2]] 
     
-    # 4. Cấu hình Huấn luyện
-    # Giai đoạn 1: Đóng băng (Freeze) - Train nhanh
     Init_Epoch          = 0
     Freeze_Epoch        = 50
     Freeze_batch_size   = 32  
-    
-    # Giai đoạn 2: Xả băng (Unfreeze) - Train kỹ
     UnFreeze_Epoch      = 100
     Unfreeze_batch_size = 16 
     
-    Freeze_Train        = True # Có đóng băng hay không?
+    Freeze_Train        = True 
 
-    # 5. Tối ưu hóa (Optimizer)
     Init_lr             = 1e-2
     Min_lr              = Init_lr * 0.01
     optimizer_type      = "sgd"
     momentum            = 0.937
     weight_decay        = 5e-4
-    
-    # 6. Hệ thống
-    save_period         = 10     # Lưu weights sau mỗi 10 vòng
-    save_dir            = 'logs' # Thư mục lưu
-    num_workers         = 4      # Số luồng CPU
 
-    # Các tham số phụ (Giữ nguyên)
+    save_period         = 10   
+    save_dir            = 'logs' 
+    num_workers         = 4   
+
     pretrained          = False
     eval_flag           = True
     eval_period         = 10
@@ -85,25 +74,20 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     local_rank = 0
     
-    # Lấy danh sách lớp
     class_names, num_classes = get_classes(classes_path)
     
-    # --- GHI CỨNG ANCHORS (SỬA LỖI SIZE MISMATCH) ---
     anchors = np.array([
         [10, 14],  [23, 27],   [37, 58], 
         [81, 82],  [135, 169], [344, 319]
     ], dtype='float32')
     num_anchors = 6
-    # ------------------------------------------------
 
-    # Khởi tạo mô hình
+
     model = YoloBody(anchors_mask, num_classes, pretrained=pretrained, phi=phi)
     
-    # Khởi tạo trọng số ngẫu nhiên nếu không dùng pre-train
     if not pretrained:
         weights_init(model)
         
-    # Load trọng số mẫu (Transfer Learning)
     if model_path != '':
         print(f'Load weights {model_path}.')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -121,15 +105,12 @@ if __name__ == "__main__":
         model.load_state_dict(model_dict)
         print("--> Load weights thành công!")
 
-    # Hàm mất mát (Loss function)
     yolo_loss = YOLOLoss(anchors, num_classes, input_shape, Cuda, anchors_mask, label_smoothing)
     
-    # Ghi log
     time_str = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
     log_dir = os.path.join(save_dir, "loss_" + str(time_str))
     loss_history = LossHistory(log_dir, model, input_shape=input_shape)
 
-    # Chế độ Train
     model_train = model.train()
     if Cuda:
         model_train = torch.nn.DataParallel(model)
@@ -144,7 +125,6 @@ if __name__ == "__main__":
     num_train = len(train_lines)
     num_val   = len(val_lines)
 
-    # Hiển thị cấu hình ra màn hình
     show_config(
         classes_path=classes_path, anchors_path='Hardcoded', anchors_mask=anchors_mask, model_path=model_path, input_shape=input_shape, \
         Init_Epoch=Init_Epoch, Freeze_Epoch=Freeze_Epoch, UnFreeze_Epoch=UnFreeze_Epoch, Freeze_batch_size=Freeze_batch_size, Unfreeze_batch_size=Unfreeze_batch_size, Freeze_Train=Freeze_Train, \
@@ -158,14 +138,12 @@ if __name__ == "__main__":
     if True:
         UnFreeze_flag = False
         
-        # Đóng băng Backbone (nếu cần)
         if Freeze_Train:
             for param in model.backbone.parameters():
                 param.requires_grad = False
 
         batch_size = Freeze_batch_size if Freeze_Train else Unfreeze_batch_size
 
-        # Cấu hình Optimizer
         nbs = 64
         lr_limit_max = 1e-3 if optimizer_type == 'adam' else 5e-2
         lr_limit_min = 3e-4 if optimizer_type == 'adam' else 5e-4
@@ -190,7 +168,6 @@ if __name__ == "__main__":
 
         lr_scheduler_func = get_lr_scheduler(lr_decay_type, Init_lr_fit, Min_lr_fit, UnFreeze_Epoch)
         
-        # DataLoader
         train_dataset   = YoloDataset(train_lines, input_shape, num_classes, epoch_length=UnFreeze_Epoch, mosaic=mosaic, mixup=mixup, mosaic_prob=mosaic_prob, mixup_prob=mixup_prob, train=True, special_aug_ratio=special_aug_ratio)
         val_dataset     = YoloDataset(val_lines, input_shape, num_classes, epoch_length=UnFreeze_Epoch, mosaic=False, mixup=False, mosaic_prob=0, mixup_prob=0, train=False, special_aug_ratio=0)
         
@@ -199,9 +176,7 @@ if __name__ == "__main__":
 
         eval_callback = EvalCallback(model, input_shape, anchors, anchors_mask, class_names, num_classes, val_lines, log_dir, Cuda, eval_flag=eval_flag, period=eval_period)
 
-        # --- VÒNG LẶP EPOCH ---
         for epoch in range(Init_Epoch, UnFreeze_Epoch):
-            # Xử lý chuyển giai đoạn Freeze -> Unfreeze
             if epoch >= Freeze_Epoch and not UnFreeze_flag and Freeze_Train:
                 batch_size = Unfreeze_batch_size
                 nbs = 64
@@ -225,13 +200,12 @@ if __name__ == "__main__":
 
                 UnFreeze_flag = True
 
-            # Cập nhật Learning Rate
             gen.dataset.epoch_now       = epoch
             gen_val.dataset.epoch_now   = epoch
             set_optimizer_lr(optimizer, lr_scheduler_func, epoch)
 
-            # Chạy 1 epoch
             fit_one_epoch(model_train, model, yolo_loss, loss_history, eval_callback, optimizer, epoch, 
                           num_train // batch_size, num_val // batch_size, gen, gen_val, UnFreeze_Epoch, Cuda, fp16, None, save_period, save_dir, local_rank)
+
 
         loss_history.writer.close()
