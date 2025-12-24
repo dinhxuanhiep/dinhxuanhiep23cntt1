@@ -7,7 +7,6 @@ from yolo import YOLO
 # --- LOAD MODEL ---
 @st.cache_resource
 def load_model():
-    # Nhớ sửa cuda=True nếu chạy trên máy có GPU xịn
     return YOLO(cuda=False)
 
 yolo = load_model()
@@ -30,7 +29,6 @@ with col1:
         
         if st.button('🔍 Quét Ảnh', type="primary"):
             with st.spinner('AI đang tìm vị trí biển số...'):
-                # Gọi YOLO detect
                 r_image, boxes, scores = yolo.detect_image(image)
                 
                 with col2:
@@ -39,7 +37,6 @@ with col1:
                     
                     if len(boxes) > 0:
                         st.success(f"Đã phát hiện {len(boxes)} biển số!")
-                        # Hiển thị danh sách các biển số cắt ra (nhưng không đọc chữ)
                         st.write("Chi tiết các vùng biển số:")
                         cols = st.columns(len(boxes))
                         for i, box in enumerate(boxes):
@@ -48,4 +45,5 @@ with col1:
                             with cols[i if i < len(cols) else 0]:
                                 st.image(crop_img, width=150, caption=f"Độ tin cậy: {scores[i]:.2f}")
                     else:
+
                         st.warning("Không tìm thấy biển số nào.")
